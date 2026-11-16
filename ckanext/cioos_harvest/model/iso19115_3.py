@@ -577,10 +577,8 @@ def _parse_aggregation_info(el):
         "aggregate-dataset-name": (
             _localised_raw(name_els[0]) if name_els else {"default": "", "local": []}
         ),
-        "aggregate-dataset-identifier": (
-            _parse_identifier(identifier_els[0])
-            if identifier_els
-            else {"code": "", "authority": "", "code-space": "", "version": ""}
+        "aggregate-dataset-identifier_code": (
+            _parse_identifier(identifier_els[0])["code"] or "" if identifier_els else ""
         ),
         "association-type": _first_text(
             el,

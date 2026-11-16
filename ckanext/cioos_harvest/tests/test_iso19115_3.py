@@ -45,6 +45,7 @@ from ckanext.cioos_harvest.model.iso19115_3 import (
     _infer_keyword_types,
     _infer_multilingual,
     _localised_raw,
+    _parse_aggregation_info,
 )
 
 log = logging.getLogger(__name__)
@@ -509,3 +510,40 @@ def test_fluent_tags_merge_skips_case_insensitive_duplicates():
         )
 
     assert package_dict["keywords"] == {"en": ["Salmon", "Cod"], "fr": ["Saumon"]}
+
+
+_AGG_NS = (
+    'xmlns:mri="http://standards.iso.org/iso/19115/-3/mri/1.0" '
+    'xmlns:cit="http://standards.iso.org/iso/19115/-3/cit/2.0" '
+    'xmlns:mcc="http://standards.iso.org/iso/19115/-3/mcc/1.0" '
+    'xmlns:gco="http://standards.iso.org/iso/19115/-3/gco/1.0"'
+)
+
+
+def test_aggregation_info_identifier_uses_flat_schema_key():
+    el = etree.fromstring(f"""<mri:MD_AssociatedResource {_AGG_NS}>
+      <mri:name><cit:CI_Citation>
+        <cit:title><gco:CharacterString>Bedford Basin Collection</gco:CharacterString></cit:title>
+        <cit:identifier><mcc:MD_Identifier>
+          <mcc:code><gco:CharacterString>https://doi.org/10.60622/v6nn-kw50</gco:CharacterString></mcc:code>
+        </mcc:MD_Identifier></cit:identifier>
+      </cit:CI_Citation></mri:name>
+      <mri:associationType><mri:DS_AssociationTypeCode codeListValue="largerWorkCitation"/></mri:associationType>
+      <mri:initiativeType><mri:DS_InitiativeTypeCode codeListValue="collection"/></mri:initiativeType>
+    </mri:MD_AssociatedResource>""")
+
+    item = _parse_aggregation_info(el)
+
+    assert item["aggregate-dataset-identifier_code"] == "https://doi.org/10.60622/v6nn-kw50"
+    assert "aggregate-dataset-identifier" not in item
+    assert item["initiative-type"] == "collection"
+
+
+def test_aggregation_info_without_identifier_has_empty_code():
+    el = etree.fromstring(f"""<mri:MD_AssociatedResource {_AGG_NS}>
+      <mri:name><cit:CI_Citation>
+        <cit:title><gco:CharacterString>No identifier</gco:CharacterString></cit:title>
+      </cit:CI_Citation></mri:name>
+    </mri:MD_AssociatedResource>""")
+
+    assert _parse_aggregation_info(el)["aggregate-dataset-identifier_code"] == ""
